@@ -1,0 +1,37 @@
+{
+  "name": "grpaiva/laravel-react-agent",
+  "description": "A ReAct style agent for Laravel + Prism with stored chain-of-thought",
+  "keywords": [
+    "laravel",
+    "react",
+    "llm",
+    "prism"
+  ],
+  "type": "library",
+  "require": {
+    "php": "^8.3",
+    "laravel/framework": "^11.0",
+    "echolabsdev/prism": "^0.23"
+  },
+  "autoload": {
+    "psr-4": {
+      "Grpaiva\\LaravelReactAgent\\": "src/"
+    }
+  },
+  "extra": {
+    "laravel": {
+      "providers": [
+        "Grpaiva\\LaravelReactAgent\\Providers\\ReActAgentServiceProvider"
+      ]
+    }
+  },
+  "license": "MIT",
+  "authors": [
+    {
+      "name": "Gustavo Paiva",
+      "email": "gustavorpaiva@gmail.com"
+    }
+  ],
+  "minimum-stability": "dev",
+  "prefer-stable": true
+}
