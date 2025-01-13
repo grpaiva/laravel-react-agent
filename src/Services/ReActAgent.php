@@ -2,12 +2,7 @@
 
 namespace Grpaiva\LaravelReactAgent\Services;
 
-use EchoLabs\Prism\Enums\FinishReason;
 use EchoLabs\Prism\Prism;
-use EchoLabs\Prism\Enums\ToolChoice;
-use EchoLabs\Prism\Schema\ObjectSchema;
-use EchoLabs\Prism\Schema\ArraySchema;
-use EchoLabs\Prism\Schema\StringSchema;
 use EchoLabs\Prism\Exceptions\PrismException;
 use Grpaiva\LaravelReactAgent\Models\AgentSession;
 use Illuminate\Support\Facades\Log;
@@ -19,8 +14,8 @@ class ReActAgent
     protected ?string $model;
     protected array $localTools = [];
     protected array $globalTools = [];
-    protected bool $persist; // 👈 New flag for persistence
-    protected array $inMemorySession = []; // In-memory session storage
+    protected bool $persist;
+    protected array $inMemorySession = [];
 
     public function __construct(
         ?Prism  $prism = null,
@@ -37,10 +32,6 @@ class ReActAgent
         $this->persist = $persist;
     }
 
-
-    /**
-     * Handles the ReAct process with structured output.
-     */
     public function handle(string $objective, ?AgentSession $session = null): AgentSession
     {
         $tools = array_unique(array_merge($this->globalTools, $this->localTools), SORT_REGULAR);
@@ -63,11 +54,9 @@ class ReActAgent
             Log::debug("System Prompt:\n\n $systemPrompt");
 
             try {
-                $response = $this->prism->structured()
+                $response = $this->prism->text()
                     ->using($this->provider, $this->model)
-                    ->withSchema($this->getReActSchema())
                     ->withSystemPrompt($systemPrompt)
-                    ->withTools($tools)
                     ->withPrompt('')
                     ->generate();
             } catch (PrismException $e) {
@@ -75,39 +64,12 @@ class ReActAgent
                 break;
             }
 
-            $structuredResponse = $response->structured ?? [];
-            $finishReason = $response->finishReason->name;
+            $responseText = $response->text;
+            Log::debug("Response Text:\n\n$responseText");
 
-            Log::debug("Structured Response:\n\n" . json_encode($structuredResponse, JSON_PRETTY_PRINT));
-            Log::debug("Finish Reason: $finishReason");
+            $this->parseResponse($responseText, $session);
 
-            if (!empty($structuredResponse['thoughts'])) {
-                foreach ($structuredResponse['thoughts'] as $thought) {
-                    $session->steps()->create(['type' => 'assistant', 'content' => $thought]);
-                }
-            }
-
-            if (!empty($structuredResponse['actions'])) {
-                foreach ($structuredResponse['actions'] as $action) {
-                    $session->steps()->create([
-                        'type' => 'action',
-                        'content' => "Calling tool: {$action['tool']}",
-                        'payload' => ['tool' => $action['tool'], 'input' => $action['input']],
-                    ]);
-
-                    if (!empty($action['observation'])) {
-                        $session->steps()->create(['type' => 'observation', 'content' => $action['observation']]);
-                    }
-                }
-            }
-
-            if (!empty($structuredResponse['final_answer'])) {
-                $session->update(['final_answer' => $structuredResponse['final_answer']]);
-                $session->steps()->create(['type' => 'final', 'content' => $structuredResponse['final_answer']]);
-                $done = true;
-            }
-
-            if (in_array($finishReason, [FinishReason::Stop, FinishReason::Length]) || $this->isFinalAnswer($response->text)) {
+            if ($this->isFinalAnswer($responseText)) {
                 $done = true;
             }
         }
@@ -169,31 +131,34 @@ class ReActAgent
         };
     }
 
-    /**
-     * Defines the ReAct schema for structured output.
-     */
-    protected function getReActSchema(): ObjectSchema
+    protected function parseResponse(string $text, AgentSession $session): void
     {
-        return new ObjectSchema(
-            name: 'react_response',
-            description: 'Structured response for ReAct reasoning',
-            properties: [
-                new ArraySchema('thoughts', 'Reasoning steps', new StringSchema('thought', 'Step')),
-                new ArraySchema('actions', 'Actions taken', new ObjectSchema(
-                    name: 'action',
-                    description: 'Action details',
-                    properties: [
-                        new StringSchema('tool', 'Tool used'),
-                        new StringSchema('input', 'Input given', nullable: true),
-                        new StringSchema('observation', 'Result', nullable: true),
-                    ],
-                    requiredFields: ['tool', 'input', 'observation'],
-                    nullable: true
-                )),
-                new StringSchema('final_answer', 'Final answer', nullable: true)
-            ],
-            requiredFields: ['thoughts']
-        );
+        preg_match_all('/Thought:(.*?)\n/', $text, $thoughts);
+        preg_match_all('/Action:\s*(.*?)\nAction Input:\s*(.*?)\n/', $text, $actions);
+        preg_match_all('/Observation:(.*?)\n/', $text, $observations);
+        preg_match('/Final Answer:(.*?)$/', $text, $finalAnswer);
+
+        foreach ($thoughts[1] as $thought) {
+            $session->steps()->create(['type' => 'assistant', 'content' => trim($thought)]);
+        }
+
+        foreach ($actions[1] as $index => $action) {
+            $session->steps()->create([
+                'type' => 'action',
+                'content' => "Calling tool: {$action}",
+                'payload' => ['tool' => $action, 'input' => trim($actions[2][$index])],
+            ]);
+        }
+
+        foreach ($observations[1] as $observation) {
+            $session->steps()->create(['type' => 'observation', 'content' => trim($observation)]);
+        }
+
+        if (!empty($finalAnswer[1])) {
+            $final = trim($finalAnswer[1]);
+            $session->update(['final_answer' => $final]);
+            $session->steps()->create(['type' => 'final', 'content' => $final]);
+        }
     }
 
     protected function buildReActSystemPrompt(array $tools, string $question, string $scratchpad): string
@@ -215,6 +180,6 @@ class ReActAgent
 
     protected function isFinalAnswer(string $text): bool
     {
-        return str_contains($text, 'Finish:');
+        return str_contains($text, 'Final Answer:');
     }
 }
