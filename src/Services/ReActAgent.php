@@ -124,46 +124,18 @@ class ReActAgent
     }
 
     /**
-     * Adds a step to either the DB session or in-memory session.
-     */
-    protected function addStep(string $type, string $content, ?AgentSession $session = null, array $payload = []): void
-    {
-        if ($this->persist && $session) {
-            $session->steps()->create([
-                'type' => $type,
-                'content' => $content,
-                'payload' => $payload,
-            ]);
-        } else {
-            $this->inMemorySession['steps'][] = [
-                'type' => $type,
-                'content' => $content,
-                'payload' => $payload,
-            ];
-        }
-    }
-
-    /**
      * Scratchpad for persisted sessions.
      */
     protected function buildScratchpad(AgentSession $session): string
     {
+        Log::debug("Building scratchpad for session: $session->id");
         $scratchpad = '';
         foreach ($session->steps as $step) {
             $scratchpad .= $this->formatStep($step['type'], $step['content'], $step['payload'] ?? []);
         }
-        return $scratchpad;
-    }
 
-    /**
-     * Scratchpad for in-memory sessions.
-     */
-    protected function buildInMemoryScratchpad(): string
-    {
-        $scratchpad = '';
-        foreach ($this->inMemorySession['steps'] as $step) {
-            $scratchpad .= $this->formatStep($step['type'], $step['content'], $step['payload'] ?? []);
-        }
+        Log::debug("Scratchpad:\n\n$scratchpad");
+
         return $scratchpad;
     }
 
