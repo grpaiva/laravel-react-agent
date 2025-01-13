@@ -87,20 +87,6 @@ class ReActAgent
                 }
             }
 
-            if (!empty($structuredResponse['actions'])) {
-                foreach ($structuredResponse['actions'] as $action) {
-                    $session->steps()->create([
-                        'type' => 'action',
-                        'content' => "Calling tool: {$action['tool']}",
-                        'payload' => ['tool' => $action['tool'], 'input' => $action['input']],
-                    ]);
-
-                    if (!empty($action['observation'])) {
-                        $session->steps()->create(['type' => 'observation', 'content' => $action['observation']]);
-                    }
-                }
-            }
-
             if (!empty($structuredResponse['final_answer'])) {
                 $session->update(['final_answer' => $structuredResponse['final_answer']]);
                 $session->steps()->create(['type' => 'final', 'content' => $structuredResponse['final_answer']]);
@@ -178,18 +164,7 @@ class ReActAgent
             name: 'react_response',
             description: 'Structured response for ReAct reasoning',
             properties: [
-                new ArraySchema('thoughts', 'Reasoning steps', new StringSchema('thought', 'Step')),
-                new ArraySchema('actions', 'Actions taken', new ObjectSchema(
-                    name: 'action',
-                    description: 'Action details',
-                    properties: [
-                        new StringSchema('tool', 'Tool used'),
-                        new StringSchema('input', 'Input given', nullable: true),
-                        new StringSchema('observation', 'Result', nullable: true),
-                    ],
-                    requiredFields: ['tool', 'input', 'observation'],
-                    nullable: true
-                )),
+                new StringSchema('thoughts', 'Reasoning steps'),
                 new StringSchema('final_answer', 'Final answer', nullable: true)
             ],
             requiredFields: ['thoughts']
