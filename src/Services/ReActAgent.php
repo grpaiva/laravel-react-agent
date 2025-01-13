@@ -164,7 +164,12 @@ class ReActAgent
     protected function log($message, mixed $context = null): void
     {
         if ($this->debug) {
-            Log::debug($message, $context);
+            if ($context) {
+                Log::debug($message, $context);
+                return;
+            }
+
+            Log::debug($message);
         }
     }
 
