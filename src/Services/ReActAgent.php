@@ -77,7 +77,7 @@ class ReActAgent
                 ->withSystemPrompt($systemPrompt)
                 ->withPrompt('')
                 ->withTools($tools)
-                ->toolChoice(ToolChoice::Auto)
+//                ->toolChoice(ToolChoice::Auto)
                 ->generate();
 
             $structuredResponse = $response->structured;
