@@ -10,6 +10,7 @@ use EchoLabs\Prism\Schema\ArraySchema;
 use EchoLabs\Prism\Schema\StringSchema;
 use EchoLabs\Prism\Exceptions\PrismException;
 use Grpaiva\LaravelReactAgent\Models\AgentSession;
+use Illuminate\Support\Facades\Log;
 
 class ReActAgent
 {
@@ -58,6 +59,8 @@ class ReActAgent
         while (!$done) {
             $scratchpad = $this->buildScratchpad($session);
             $systemPrompt = $this->buildReActSystemPrompt($tools, $session->objective, $scratchpad);
+
+            Log::debug("System Prompt:\n\n $systemPrompt");
 
             try {
                 $response = $this->prism->structured()
