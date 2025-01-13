@@ -25,7 +25,7 @@
   "extra": {
     "laravel": {
       "providers": [
-        "Grpaiva\\LaravelReactAgent\\Providers\\ReActAgentServiceProvider"
+        "Grpaiva\\LaravelReactAgent\\ReActAgentServiceProvider"
       ]
     }
   },
