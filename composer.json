@@ -30,7 +30,10 @@
     "laravel": {
       "providers": [
         "Grpaiva\\LaravelReactAgent\\ReActAgentServiceProvider"
-      ]
+      ],
+      "aliases": {
+        "ReActTool": "Grpaiva\\LaravelReactAgent\\Facades\\ReActTool"
+      }
     }
   },
   "license": "MIT",

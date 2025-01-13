@@ -4,7 +4,7 @@ namespace Grpaiva\LaravelReactAgent;
 
 use ArgumentCountError;
 use EchoLabs\Prism\Exceptions\PrismException;
-use EchoLabs\Prism\Facades\Tool;
+use EchoLabs\Prism\Tool;
 use Grpaiva\LaravelReactAgent\Exceptions\ReActAgentException;
 use Grpaiva\LaravelReactAgent\Models\AgentSession;
 use InvalidArgumentException;
