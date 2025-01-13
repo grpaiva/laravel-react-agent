@@ -87,27 +87,14 @@ class ReActAgent
         return $this->session;
     }
 
-    public function addTool(ReActTool $tool): void
-    {
-        $this->localTools[] = $tool;
-    }
-
-    public function addTools(array $tools): void
-    {
-        foreach ($tools as $tool) {
-            if (!$tool instanceof ReActTool) {
-                throw ReActAgentException::toolMustBeInstanceOfReActTool($tool->name());
-            }
-            $this->addTool($tool);
-        }
-    }
-
     protected function buildScratchpad(): string
     {
         $scratchpad = '';
         foreach ($this->session->steps as $step) {
             $scratchpad .= $this->formatStep($step);
         }
+
+        $this->log("Scratchpad was built:\n\n$scratchpad");
         return $scratchpad;
     }
 
@@ -134,11 +121,20 @@ class ReActAgent
             return "Final Answer: $content\n";
         }
 
+        if ($type === 'error') {
+            return "Error: $content\n";
+        }
+
+        $this->log("Unknown step type: $type");
+        $this->log("Step content: $content");
+
         return '';
     }
 
     protected function parseResponse(string $text): void
     {
+        $this->log("Parsing response:\n\n$text");
+
         preg_match_all('/Thought:(.*?)\n/', $text, $thoughts);
         preg_match('/Final Answer:(.*?)$/', $text, $finalAnswer);
 
@@ -155,6 +151,7 @@ class ReActAgent
 
     protected function buildReActSystemPrompt(): string
     {
+        $this->log("Building ReAct System Prompt");
         return view('react-agent::prompts.react', [
             'question' => $this->objective,
             'scratchpad' => $this->buildScratchpad(),

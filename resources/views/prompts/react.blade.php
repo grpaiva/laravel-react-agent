@@ -11,6 +11,5 @@ Final Answer: your final answer - only when you are ready to submit
 
 Begin!
 
-Question: {{ $question }}
 Scratchpad:
 {{ $scratchpad }}
