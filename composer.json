@@ -15,7 +15,8 @@
   },
   "autoload": {
     "psr-4": {
-      "Grpaiva\\LaravelReactAgent\\": "src/"
+      "Grpaiva\\LaravelReactAgent\\": "src/",
+      "Tests\\": "tests/"
     }
   },
   "extra": {
@@ -33,5 +34,15 @@
     }
   ],
   "minimum-stability": "dev",
-  "prefer-stable": true
+  "prefer-stable": true,
+  "require-dev": {
+    "pestphp/pest": "^3.7",
+    "pestphp/pest-plugin-laravel": "^3.0",
+    "orchestra/testbench": "^9.9"
+  },
+  "config": {
+    "allow-plugins": {
+      "pestphp/pest-plugin": true
+    }
+  }
 }
