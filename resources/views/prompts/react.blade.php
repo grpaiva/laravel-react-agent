@@ -1,16 +1,12 @@
 Answer the following question using the tools provided.
 
-Tools:
-@foreach($tools as $tool)
-    - {{ $tool['name'] }}: {{ $tool['description'] }}
-@endforeach
-
-Use this format:
+Use this method of thought:
 Question: {{ $question }}
 Thought: your reasoning
-Action: choose one of [{{ implode(', ', $toolNames) }}]
-Action Input: input for the action
-Observation: result of the action
+Action: description of the tool to use - despite this description you should use the tool directly
+Action Input: description of the input used in the tool
+Observation: result of the action - when available
+(Repeat the Action and Observation steps as needed)
 Thought: I now know the final answer
 Final Answer: your final answer
 
