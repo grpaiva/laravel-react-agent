@@ -11,11 +11,6 @@ class ReActAgentServiceProvider extends ServiceProvider
     {
         // Merge our package config so Laravel sees default values
         $this->mergeConfigFrom(__DIR__ . '/../config/react-agent.php', 'react-agent');
-
-        // Bind ReActAgent as a singleton so we can inject it
-        $this->app->singleton('react.agent', function ($app) {
-            return new ReActAgent();
-        });
     }
 
     public function boot(): void
