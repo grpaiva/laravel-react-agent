@@ -29,5 +29,7 @@ class ReActAgentServiceProvider extends ServiceProvider
         ], 'react-agent-migrations');
 
         $this->loadMigrationsFrom(__DIR__ . '/../database/migrations');
+
+        $this->loadViewsFrom(__DIR__ . '/../resources/views', 'react-agent');
     }
 }

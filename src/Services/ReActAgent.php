@@ -194,7 +194,7 @@ class ReActAgent
             'description' => $tool->description(),
         ], $tools);
 
-        return view('prompts.react', [
+        return view('react-agent::prompts.react', [
             'tools' => $toolList,
             'question' => $question,
             'scratchpad' => $scratchpad,
