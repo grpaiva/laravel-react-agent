@@ -17,7 +17,7 @@ return new class extends Migration {
             // 'action' = calling a tool
             // 'observation' = result from a tool
             // 'final' = final completion from the assistant
-            $table->text('content');          // The text of the step
+            $table->text('content')->nullable();          // The text of the step
             $table->json('payload')->nullable(); // Additional metadata (tool name, arguments, LLM usage, etc.)
             $table->timestamps();
         });

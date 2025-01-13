@@ -83,6 +83,10 @@ class ReActAgent
 
             if (!empty($structuredResponse['actions'])) {
                 foreach ($structuredResponse['actions'] as $action) {
+                    if ($action['tool'] === 'null') {
+                        break;
+                    }
+
                     $session->steps()->create([
                         'type' => 'action',
                         'content' => "Calling tool: {$action['tool']}",
@@ -178,10 +182,10 @@ class ReActAgent
                     description: 'Action details',
                     properties: [
                         new StringSchema('tool', 'Tool used'),
-                        new StringSchema('input', 'Input given'),
+                        new StringSchema('input', 'Input given', nullable: true),
                         new StringSchema('observation', 'Result', nullable: true),
                     ],
-                    requiredFields: ['tool', 'input'],
+                    requiredFields: ['tool', 'input', 'observation'],
                     nullable: true
                 )),
                 new StringSchema('final_answer', 'Final answer', nullable: true)
