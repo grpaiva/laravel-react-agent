@@ -18,7 +18,11 @@
   },
   "autoload": {
     "psr-4": {
-      "Grpaiva\\LaravelReactAgent\\": "src/",
+      "Grpaiva\\LaravelReactAgent\\": "src/"
+    }
+  },
+  "autoload-dev": {
+    "psr-4": {
       "Tests\\": "tests/"
     }
   },
