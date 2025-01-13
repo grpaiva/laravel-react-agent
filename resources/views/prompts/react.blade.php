@@ -1,20 +1,16 @@
 Answer the following question using the tools provided.
-
-Tools:
-@foreach($tools as $tool)
-    - {{ $tool['name'] }}: {{ $tool['description'] }}
-@endforeach
+You may use the scratchpad to keep track of your thoughts.
+Once you have an answer, fill in the final answer field.
 
 Use this format:
 Question: {{ $question }}
 Thought: your reasoning
-Action: choose one of [{{ implode(', ', $toolNames) }}]
-Action Input: input for the action
-Observation: result of the action - this will be filled in by the tool DO NOT FILL THIS IN
+(multiple lines of thought as needed)
 Thought: I now know the final answer
-Final Answer: your final answer
+Final Answer: your final answer - only when you are ready to submit
 
 Begin!
 
 Question: {{ $question }}
+Scratchpad:
 {{ $scratchpad }}
