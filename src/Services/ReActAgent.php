@@ -10,6 +10,7 @@ use EchoLabs\Prism\Schema\ArraySchema;
 use EchoLabs\Prism\Schema\StringSchema;
 use EchoLabs\Prism\Exceptions\PrismException;
 use Grpaiva\LaravelReactAgent\Models\AgentSession;
+use Grpaiva\LaravelReactAgent\Models\AgentStep;
 use Illuminate\Support\Facades\Log;
 
 class ReActAgent
@@ -131,7 +132,7 @@ class ReActAgent
         Log::debug("Building scratchpad for session: $session->id");
         $scratchpad = '';
         foreach ($session->steps as $step) {
-            $scratchpad .= $this->formatStep($step['type'], $step['content'], $step['payload'] ?? []);
+            $scratchpad .= $this->formatStep($step);
         }
 
         Log::debug("Scratchpad:\n\n$scratchpad");
@@ -139,12 +140,16 @@ class ReActAgent
         return $scratchpad;
     }
 
-    protected function formatStep(string $type, string $content, array $payload = []): string
+    protected function formatStep(AgentStep $step): string
     {
-        return match ($type) {
-            'assistant' => "\nThought: $content",
-            'action' => "\nAction: {$payload['tool']}\nAction Input: {$payload['input']}",
-            'observation' => "\nObservation: $content",
+        return match ($step->type) {
+            'user' => "User: $step->content\n",
+            'assistant' => "Assistant: $step->content\n",
+            'thought' => "Thought: $step->content\n",
+            'action' => "Action: $step->content\n",
+            'observation' => "Observation: $step->content\n",
+            'final' => "Final: $step->content\n",
+            'error' => "Error: $step->content\n",
             default => '',
         };
     }
