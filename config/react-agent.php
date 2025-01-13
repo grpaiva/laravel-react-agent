@@ -23,12 +23,12 @@ return [
 'default_model' => 'gpt-4o-mini',
 
 'global_tools' => [
-    \EchoLabs\Prism\Facades\Tool::as('weather')
-        ->for('Get current weather info')
-        ->withStringParameter('city', 'The city to fetch weather for')
-        ->using(function ($city) {
-            return "Weather in {$city}: Sunny, 75F";
-        }),
-    // ... other global tools ...
+//    \EchoLabs\Prism\Facades\Tool::as('weather')
+//        ->for('Get current weather info')
+//        ->withStringParameter('city', 'The city to fetch weather for')
+//        ->using(function ($city) {
+//            return "Weather in {$city}: Sunny, 75F";
+//        }),
+//    // ... other global tools ...
     ],
 ];
