@@ -98,7 +98,7 @@ class ReActAgent
 
                     foreach ($tools as $tool) {
                         if ($tool->name() === $toolName) {
-                            $toolResponse = $tool->run($action['input']);
+                            $toolResponse = $tool->handle($action['input']);
                             $session->steps()->create(['type' => 'observation', 'content' => $toolResponse]);
                         }
                     }
