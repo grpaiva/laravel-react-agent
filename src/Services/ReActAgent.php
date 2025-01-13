@@ -68,7 +68,7 @@ class ReActAgent
                     ->withSchema($this->getReActSchema())
                     ->withSystemPrompt($systemPrompt)
                     ->withTools($tools)
-                    ->withPrompt("Do your best to achieve the objective!")
+                    ->withPrompt('')
                     ->generate();
             } catch (PrismException $e) {
                 $session->steps()->create(['type' => 'error', 'content' => $e->getMessage()]);
