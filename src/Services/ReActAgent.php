@@ -170,7 +170,6 @@ class ReActAgent
                     properties: [
                         new StringSchema('tool', 'Tool to use - e.g. functions.search'),
                         new StringSchema('input', 'Input to use with tool', nullable: true),
-                        new StringSchema('observation', 'Result', nullable: true),
                     ],
                     requiredFields: ['tool', 'input'],
                     nullable: true
