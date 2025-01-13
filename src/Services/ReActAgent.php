@@ -62,7 +62,7 @@ class ReActAgent
             $this->log("System Prompt:\n\n $systemPrompt");
 
             try {
-                $response = $this->prism->text()
+                $response = Prism::text()
                     ->using($this->provider, $this->model)
                     ->withSystemPrompt($systemPrompt)
                     ->withTools($this->tools)
@@ -90,7 +90,7 @@ class ReActAgent
     protected function buildScratchpad(): string
     {
         $scratchpad = '';
-        foreach ($this->session->steps as $step) {
+        foreach ($this->session->fresh()->steps as $step) {
             $scratchpad .= $this->formatStep($step);
         }
 
