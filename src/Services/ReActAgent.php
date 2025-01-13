@@ -2,6 +2,7 @@
 
 namespace Grpaiva\LaravelReactAgent\Services;
 
+use EchoLabs\Prism\Enums\ToolChoice;
 use EchoLabs\Prism\Prism;
 use EchoLabs\Prism\Exceptions\PrismException;
 use Grpaiva\LaravelReactAgent\Exceptions\ReActAgentException;
@@ -12,26 +13,80 @@ use Illuminate\Support\Facades\Log;
 
 class ReActAgent
 {
+    protected string $objective;
     protected Prism $prism;
+    protected array $tools = [];
     protected mixed $provider;
     protected ?string $model;
-    protected array $localTools = [];
-    protected array $globalTools = [];
-    protected bool $persist;
+    protected ?AgentSession $session;
+    protected bool $debug = false;
+
 
     public function __construct(
+        string $objective,
+        array   $tools,
         ?Prism  $prism = null,
         mixed   $provider = null,
         ?string $model = null,
-        array   $tools = [],
-        bool    $persist = true
+        ?AgentSession $session = null,
+        bool $debug = false
     ) {
+        $this->objective = $objective;
         $this->prism = $prism ?? new Prism();
-        $this->globalTools = config('react-agent.global_tools', []);
-        $this->localTools = $tools;
         $this->provider = $provider ?? config('react-agent.default_provider');
         $this->model = $model ?? config('react-agent.default_model');
-        $this->persist = $persist;
+        $this->session = $session ?? AgentSession::create([
+            'objective' => $objective,
+        ]);
+        $this->debug = $debug;
+
+        $allTools = array_merge($tools, config('react-agent.global_tools', []));
+
+        foreach ($allTools as $tool) {
+            if (!$tool instanceof ReActTool) {
+                throw ReActAgentException::toolMustBeInstanceOfReActTool($tool->name());
+            }
+
+            $this->tools[] = $tool;
+        }
+
+        if (empty($this->tools)) {
+            throw ReActAgentException::toolsEmpty();
+        }
+    }
+
+    public function invoke(): string
+    {
+        $done = false;
+
+        while (!$done) {
+            $systemPrompt = $this->buildReActSystemPrompt();
+            $this->log("System Prompt:\n\n $systemPrompt");
+
+            try {
+                $response = $this->prism->text()
+                    ->using($this->provider, $this->model)
+                    ->withSystemPrompt($systemPrompt)
+                    ->withTools($this->tools)
+                    ->withToolChoice(ToolChoice::Auto)
+                    ->withPrompt('')
+                    ->generate();
+            } catch (PrismException $e) {
+                $this->session->steps()->create(['type' => 'error', 'content' => $e->getMessage()]);
+                break;
+            }
+
+            $responseText = $response->text;
+            $this->log("Response Text:\n\n$responseText");
+
+            $this->parseResponse($responseText);
+
+            if ($this->isFinalAnswer($responseText)) {
+                $done = true;
+            }
+        }
+
+        return $this->session;
     }
 
     public function addTool(ReActTool $tool): void
@@ -49,55 +104,10 @@ class ReActAgent
         }
     }
 
-    public function handle(string $objective, ?AgentSession $session = null): AgentSession
-    {
-        $tools = array_unique(array_merge($this->globalTools, $this->localTools), SORT_REGULAR);
-
-        if (empty($tools)) {
-            throw ReActAgentException::toolsEmpty();
-        }
-
-        if (!$session) {
-            $session = AgentSession::create(['objective' => $objective]);
-            $session->steps()->create(['type' => 'user', 'content' => $objective]);
-        }
-
-        $done = false;
-
-        while (!$done) {
-            $scratchpad = $this->buildScratchpad($session);
-            $systemPrompt = $this->buildReActSystemPrompt($tools, $session->objective, $scratchpad);
-
-            Log::debug("System Prompt:\n\n $systemPrompt");
-
-            try {
-                $response = $this->prism->text()
-                    ->using($this->provider, $this->model)
-                    ->withSystemPrompt($systemPrompt)
-                    ->withPrompt('')
-                    ->generate();
-            } catch (PrismException $e) {
-                $session->steps()->create(['type' => 'error', 'content' => $e->getMessage()]);
-                break;
-            }
-
-            $responseText = $response->text;
-            Log::debug("Response Text:\n\n$responseText");
-
-            $this->parseResponse($responseText, $session);
-
-            if ($this->isFinalAnswer($responseText)) {
-                $done = true;
-            }
-        }
-
-        return $session;
-    }
-
-    protected function buildScratchpad(AgentSession $session): string
+    protected function buildScratchpad(): string
     {
         $scratchpad = '';
-        foreach ($session->steps as $step) {
+        foreach ($this->session->steps as $step) {
             $scratchpad .= $this->formatStep($step);
         }
         return $scratchpad;
@@ -129,51 +139,35 @@ class ReActAgent
         return '';
     }
 
-    protected function parseResponse(string $text, AgentSession $session): void
+    protected function parseResponse(string $text): void
     {
         preg_match_all('/Thought:(.*?)\n/', $text, $thoughts);
-        preg_match_all('/Action:\s*(.*?)\nAction Input:\s*(.*?)\n/', $text, $actions);
-        preg_match_all('/Observation:(.*?)\n/', $text, $observations);
         preg_match('/Final Answer:(.*?)$/', $text, $finalAnswer);
 
         foreach ($thoughts[1] as $thought) {
-            $session->steps()->create(['type' => 'assistant', 'content' => trim($thought)]);
-        }
-
-        foreach ($actions[1] as $index => $action) {
-            $session->steps()->create([
-                'type' => 'action',
-                'content' => "Calling tool: {$action}",
-                'payload' => ['tool' => $action, 'input' => trim($actions[2][$index])],
-            ]);
-        }
-
-        foreach ($observations[1] as $observation) {
-            $session->steps()->create(['type' => 'observation', 'content' => trim($observation)]);
+            $this->session->steps()->create(['type' => 'assistant', 'content' => trim($thought)]);
         }
 
         if (!empty($finalAnswer[1])) {
             $final = trim($finalAnswer[1]);
-            $session->update(['final_answer' => $final]);
-            $session->steps()->create(['type' => 'final', 'content' => $final]);
+            $this->session->update(['final_answer' => $final]);
+            $this->session->steps()->create(['type' => 'final', 'content' => $final]);
         }
     }
 
-    protected function buildReActSystemPrompt(array $tools, string $question, string $scratchpad): string
+    protected function buildReActSystemPrompt(): string
     {
-        $toolList = array_map(fn($tool) => [
-            'name' => $tool->name(),
-            'description' => $tool->description(),
-        ], $tools);
-
-        $toolNames = array_map(fn($tool) => $tool['name'], $toolList);
-
         return view('react-agent::prompts.react', [
-            'tools' => $toolList,
-            'toolNames' => $toolNames,
-            'question' => $question,
-            'scratchpad' => $scratchpad,
+            'question' => $this->objective,
+            'scratchpad' => $this->buildScratchpad(),
         ])->render();
+    }
+
+    protected function log($message, mixed $context = null): void
+    {
+        if ($this->debug) {
+            Log::debug($message, $context);
+        }
     }
 
     protected function isFinalAnswer(string $text): bool

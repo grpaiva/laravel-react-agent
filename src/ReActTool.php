@@ -38,8 +38,16 @@ class ReActTool extends Tool
             'payload' => ['tool' => $this->name(), 'input' => json_encode($args)],
         ]);
 
+        $result = call_user_func($this->fn, ...$args);
+
+        $this->session->steps()->create([
+            'type' => 'observation',
+            'content' => $result,
+            'payload' => ['tool' => $this->name(), json_encode($result)],
+        ]);
+
         try {
-            return call_user_func($this->fn, ...$args);
+            return $result;
         } catch (ArgumentCountError|InvalidArgumentException|TypeError $e) {
             throw PrismException::invalidParameterInTool($this->name, $e);
         }
