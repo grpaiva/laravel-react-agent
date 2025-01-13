@@ -194,10 +194,16 @@ class ReActAgent
             'description' => $tool->description(),
         ], $tools);
 
+        // ✅ Extract tool names for the Action format
+        $toolNames = array_map(fn($tool) => $tool['name'], $toolList);
+
+        // ✅ Pass $toolNames to the view
         return view('react-agent::prompts.react', [
             'tools' => $toolList,
+            'toolNames' => $toolNames,
             'question' => $question,
             'scratchpad' => $scratchpad,
         ])->render();
     }
+
 }

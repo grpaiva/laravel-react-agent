@@ -8,7 +8,7 @@ Tools:
 Use this format:
 Question: {{ $question }}
 Thought: your reasoning
-Action: choose one of [@foreach($toolNames as $name){{ $name }}@if(!$loop->last), @endif @endforeach]
+Action: choose one of [{{ implode(', ', $toolNames) }}]
 Action Input: input for the action
 Observation: result of the action
 Thought: I now know the final answer
