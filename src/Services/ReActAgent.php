@@ -26,31 +26,31 @@ class ReActAgent
         mixed   $provider = null,
         ?string $model = null,
         array   $tools = [],
-        bool    $persist = true // 👈 Default to true (database persistence)
+        bool    $persist = true
     ) {
         $this->prism = $prism ?? new Prism();
-//        $this->globalTools = config('react-agent.global_tools', []);
-        $this->globalTools = [];
+        $this->globalTools = config('react-agent.global_tools', []);
         $this->localTools = $tools;
         $this->provider = $provider ?? config('react-agent.default_provider');
         $this->model = $model ?? config('react-agent.default_model');
         $this->persist = $persist;
     }
 
+
     /**
      * Handles the ReAct process with structured output.
      */
     public function handle(string $objective, ?AgentSession $session = null): AgentSession
     {
-        $tools = array_merge($this->globalTools, $this->localTools);
+        $tools = array_unique(array_merge($this->globalTools, $this->localTools), SORT_REGULAR);
 
-        // Create a new session if it doesn't exist
+        if (empty($tools)) {
+            throw new PrismException('No tools available for reasoning');
+        }
+
         if (!$session) {
             $session = AgentSession::create(['objective' => $objective]);
-            $session->steps()->create([
-                'type' => 'user',
-                'content' => $objective,
-            ]);
+            $session->steps()->create(['type' => 'user', 'content' => $objective]);
         }
 
         $done = false;
@@ -59,67 +59,49 @@ class ReActAgent
             $scratchpad = $this->buildScratchpad($session);
             $systemPrompt = $this->buildReActSystemPrompt($tools, $session->objective, $scratchpad);
 
-            // Get the structured response
-            $response = $this->prism
-                ->structured()
-                ->using($this->provider, $this->model)
-                ->withSchema($this->getReActSchema())
-                ->withSystemPrompt($systemPrompt)
-                ->withPrompt('')
-                ->withTools($tools)
-//                ->toolChoice(ToolChoice::Auto)
-                ->generate();
+            try {
+                $response = $this->prism->structured()
+                    ->using($this->provider, $this->model)
+                    ->withSchema($this->getReActSchema())
+                    ->withSystemPrompt($systemPrompt)
+                    ->withTools($tools)
+                    ->withPrompt("Do your best to achieve the objective!")
+                    ->generate();
+            } catch (PrismException $e) {
+                $session->steps()->create(['type' => 'error', 'content' => $e->getMessage()]);
+                break;
+            }
 
             $structuredResponse = $response->structured ?? [];
             $finishReason = $response->finishReason->name;
 
-            // ✅ Save all THOUGHTS
             if (!empty($structuredResponse['thoughts'])) {
                 foreach ($structuredResponse['thoughts'] as $thought) {
-                    $session->steps()->create([
-                        'type'    => 'assistant',
-                        'content' => $thought,
-                    ]);
+                    $session->steps()->create(['type' => 'assistant', 'content' => $thought]);
                 }
             }
 
-            // ✅ Save all ACTIONS and OBSERVATIONS
             if (!empty($structuredResponse['actions'])) {
                 foreach ($structuredResponse['actions'] as $action) {
-                    // Save action
                     $session->steps()->create([
-                        'type'    => 'action',
+                        'type' => 'action',
                         'content' => "Calling tool: {$action['tool']}",
-                        'payload' => [
-                            'tool'  => $action['tool'],
-                            'input' => $action['input'],
-                        ],
+                        'payload' => ['tool' => $action['tool'], 'input' => $action['input']],
                     ]);
 
-                    // Save observation
-                    $session->steps()->create([
-                        'type'    => 'observation',
-                        'content' => $action['observation'],
-                    ]);
+                    if (!empty($action['observation'])) {
+                        $session->steps()->create(['type' => 'observation', 'content' => $action['observation']]);
+                    }
                 }
             }
 
-            // ✅ Save FINAL ANSWER if available
             if (!empty($structuredResponse['final_answer'])) {
                 $session->update(['final_answer' => $structuredResponse['final_answer']]);
-                $session->steps()->create([
-                    'type'    => 'final',
-                    'content' => $structuredResponse['final_answer'],
-                ]);
-                $done = true;  // End the loop
+                $session->steps()->create(['type' => 'final', 'content' => $structuredResponse['final_answer']]);
+                $done = true;
             }
 
-            // ✅ Stop if the finish reason indicates completion
-            if (
-                $finishReason === FinishReason::Stop ||
-                $finishReason === FinishReason::Length ||
-                $this->isFinalAnswer($response->text)
-            ) {
+            if (in_array($finishReason, [FinishReason::Stop, FinishReason::Length]) || $this->isFinalAnswer($response->text)) {
                 $done = true;
             }
         }
@@ -192,15 +174,19 @@ class ReActAgent
             properties: [
                 new ArraySchema('thoughts', 'Reasoning steps', new StringSchema('thought', 'Step')),
                 new ArraySchema('actions', 'Actions taken', new ObjectSchema(
-                    'action', 'Action details', [
-                    new StringSchema('tool', 'Tool used'),
-                    new StringSchema('input', 'Input given'),
-                    new StringSchema('observation', 'Result'),
-                ], ['tool', 'input', 'observation']
+                    name: 'action',
+                    description: 'Action details',
+                    properties: [
+                        new StringSchema('tool', 'Tool used'),
+                        new StringSchema('input', 'Input given'),
+                        new StringSchema('observation', 'Result', nullable: true),
+                    ],
+                    requiredFields: ['tool', 'input'],
+                    nullable: true
                 )),
-                new StringSchema('final_answer', 'Final answer')
+                new StringSchema('final_answer', 'Final answer', nullable: true)
             ],
-            requiredFields: ['thoughts', 'actions', 'final_answer']
+            requiredFields: ['thoughts']
         );
     }
 
@@ -211,10 +197,8 @@ class ReActAgent
             'description' => $tool->description(),
         ], $tools);
 
-        // ✅ Extract tool names for the Action format
         $toolNames = array_map(fn($tool) => $tool['name'], $toolList);
 
-        // ✅ Pass $toolNames to the view
         return view('react-agent::prompts.react', [
             'tools' => $toolList,
             'toolNames' => $toolNames,
