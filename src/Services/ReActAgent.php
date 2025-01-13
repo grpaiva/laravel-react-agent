@@ -47,7 +47,7 @@ class ReActAgent
                 throw ReActAgentException::toolMustBeInstanceOfReActTool($tool->name());
             }
 
-            $this->tools[] = $tool;
+            $this->tools[] = $tool->withSession($this->session);
         }
 
         if (empty($this->tools)) {
