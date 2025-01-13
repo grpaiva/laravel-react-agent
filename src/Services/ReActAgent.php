@@ -43,10 +43,8 @@ class ReActAgent
         $allTools = array_merge($tools, config('react-agent.global_tools', []));
 
         foreach ($allTools as $tool) {
-            if (!$tool instanceof ReActTool) {
-                throw ReActAgentException::toolMustBeInstanceOfReActTool($tool->name());
-            }
-
+            $this->log("Adding tool: {$tool->name()}");
+            $this->log("Tool is instance of: " . get_class($tool));
             $this->tools[] = $tool->withSession($this->session);
         }
 
