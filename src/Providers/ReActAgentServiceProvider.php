@@ -20,12 +20,14 @@ class ReActAgentServiceProvider extends ServiceProvider
 
     public function boot()
     {
-        // Publish config so the user can override defaults
         $this->publishes([
             __DIR__ . '/../../config/react-agent.php' => config_path('react-agent.php'),
         ], 'react-agent-config');
 
-        // Migrations
+        $this->publishes([
+            __DIR__ . '/../../database/migrations' => database_path('migrations'),
+        ], 'react-agent-migrations');
+
         $this->loadMigrationsFrom(__DIR__ . '/../../database/migrations');
     }
 }
