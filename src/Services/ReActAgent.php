@@ -83,10 +83,6 @@ class ReActAgent
 
             if (!empty($structuredResponse['actions'])) {
                 foreach ($structuredResponse['actions'] as $action) {
-                    if ($action['tool'] === 'null') {
-                        break;
-                    }
-
                     $session->steps()->create([
                         'type' => 'action',
                         'content' => "Calling tool: {$action['tool']}",
