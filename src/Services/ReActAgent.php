@@ -78,6 +78,9 @@ class ReActAgent
             $structuredResponse = $response->structured ?? [];
             $finishReason = $response->finishReason->name;
 
+            Log::debug("Structured Response:\n\n" . json_encode($structuredResponse, JSON_PRETTY_PRINT));
+            Log::debug("Finish Reason: $finishReason");
+
             if (!empty($structuredResponse['thoughts'])) {
                 foreach ($structuredResponse['thoughts'] as $thought) {
                     $session->steps()->create(['type' => 'assistant', 'content' => $thought]);
