@@ -16,10 +16,6 @@ class ReActAgentServiceProvider extends ServiceProvider
         $this->app->singleton('react.agent', function ($app) {
             return new ReActAgent();
         });
-
-        $this->app->bind('react.tool', function ($app) {
-            return new \Grpaiva\LaravelReactAgent\ReActTool();
-        });
     }
 
     public function boot(): void
