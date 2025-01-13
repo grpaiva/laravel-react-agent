@@ -163,8 +163,8 @@ class ReActAgent
             name: 'react_response',
             description: 'Structured response for ReAct reasoning',
             properties: [
-                new ArraySchema('thoughts', 'Reasoning steps', new StringSchema('thought', 'Step')),
-                new ArraySchema('actions', 'Actions taken', new ObjectSchema(
+                new StringSchema('thought', 'Reasoning step'),
+                new ObjectSchema(
                     name: 'action',
                     description: 'Action details',
                     properties: [
@@ -172,12 +172,12 @@ class ReActAgent
                         new StringSchema('input', 'Input to use with tool', nullable: true),
                         new StringSchema('observation', 'Result', nullable: true),
                     ],
-                    requiredFields: ['tool', 'input', 'observation'],
+                    requiredFields: ['tool', 'input'],
                     nullable: true
-                )),
+                ),
                 new StringSchema('final_answer', 'Final answer', nullable: true)
             ],
-            requiredFields: ['thoughts']
+            requiredFields: ['thought']
         );
     }
 
