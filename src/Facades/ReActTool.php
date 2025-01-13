@@ -2,12 +2,18 @@
 
 namespace Grpaiva\LaravelReactAgent\Facades;
 
-use Illuminate\Support\Facades\Facade;
+use Grpaiva\LaravelReactAgent\ReActTool as BaseTool;
 
-class ReActTool extends Facade
+class ReActTool
 {
-    protected static function getFacadeAccessor(): string
+    public static function __callStatic(string $method, array $arguments): BaseTool
     {
-        return 'react.tool';
+        $instance = new BaseTool;
+
+        if (method_exists($instance, $method)) {
+            return $instance->$method(...$arguments);
+        }
+
+        throw new \BadMethodCallException("Method {$method} does not exist.");
     }
 }
