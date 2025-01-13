@@ -14,6 +14,22 @@ class ReActTool extends Tool
 {
     protected ?AgentSession $session;
 
+    /**
+     * Handle static method calls and forward them to a new instance.
+     *
+     * This allows calls like ReActTool::as('Name') to work.
+     */
+    public static function __callStatic($method, $arguments)
+    {
+        $instance = new static();
+
+        if (method_exists($instance, $method)) {
+            return $instance->$method(...$arguments);
+        }
+
+        throw new \BadMethodCallException("Method {$method} does not exist in " . static::class);
+    }
+
     public function withSession(AgentSession $session): self
     {
         $this->session = $session;
@@ -32,26 +48,26 @@ class ReActTool extends Tool
             throw ReActAgentException::toolRequiresSession($this->name());
         }
 
+        // Log the action step in the session
         $this->session->steps()->create([
             'type' => 'action',
             'content' => "Calling tool: {$this->name()}",
             'payload' => ['tool' => $this->name(), 'input' => json_encode($args)],
         ]);
 
-        $result = call_user_func($this->fn, ...$args);
-
-        $this->session->steps()->create([
-            'type' => 'observation',
-            'content' => $result,
-            'payload' => ['tool' => $this->name(), json_encode($result)],
-        ]);
-
         try {
+            $result = call_user_func($this->fn, ...$args);
+
+            // Log the observation step in the session
+            $this->session->steps()->create([
+                'type' => 'observation',
+                'content' => $result,
+                'payload' => ['tool' => $this->name(), 'result' => json_encode($result)],
+            ]);
+
             return $result;
-        } catch (ArgumentCountError|InvalidArgumentException|TypeError $e) {
+        } catch (ArgumentCountError | InvalidArgumentException | TypeError $e) {
             throw PrismException::invalidParameterInTool($this->name, $e);
         }
     }
-
-
 }
