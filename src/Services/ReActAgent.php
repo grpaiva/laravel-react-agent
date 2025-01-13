@@ -110,7 +110,7 @@ class ReActAgent
                 }
             }
 
-            if (!empty($structuredResponse['final_answer'])) {
+            if (!empty($structuredResponse['final_answer'] && $structuredResponse['final_answer'] !== 'null')) {
                 $session->update(['final_answer' => $structuredResponse['final_answer']]);
                 $session->steps()->create(['type' => 'final', 'content' => $structuredResponse['final_answer']]);
                 $done = true;
