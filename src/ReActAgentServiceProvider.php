@@ -1,13 +1,13 @@
 <?php
 
-namespace Grpaiva\LaravelReactAgent\Providers;
+namespace Grpaiva\LaravelReactAgent;
 
 use Illuminate\Support\ServiceProvider;
 use Grpaiva\LaravelReactAgent\Services\ReActAgent;
 
 class ReActAgentServiceProvider extends ServiceProvider
 {
-    public function register()
+    public function register(): void
     {
         // Merge our package config so Laravel sees default values
         $this->mergeConfigFrom(__DIR__ . '/../../config/react-agent.php', 'react-agent');
@@ -18,7 +18,7 @@ class ReActAgentServiceProvider extends ServiceProvider
         });
     }
 
-    public function boot()
+    public function boot(): void
     {
         $this->publishes([
             __DIR__ . '/../../config/react-agent.php' => config_path('react-agent.php'),
