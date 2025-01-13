@@ -40,36 +40,26 @@ class ReActAgent
     /**
      * Handles the ReAct process with structured output.
      */
-    public function handle(string $objective, ?AgentSession $session = null): AgentSession|array
+    public function handle(string $objective, ?AgentSession $session = null): AgentSession
     {
         $tools = array_merge($this->globalTools, $this->localTools);
 
-        if ($this->persist) {
-            if (!$session) {
-                $session = AgentSession::create(['objective' => $objective]);
-                $session->steps()->create([
-                    'type' => 'user',
-                    'content' => $objective,
-                ]);
-            }
-        } else {
-            // Initialize in-memory session
-            $this->inMemorySession = [
-                'objective' => $objective,
-                'steps' => [['type' => 'user', 'content' => $objective]],
-                'final_answer' => null,
-            ];
+        // Create a new session if it doesn't exist
+        if (!$session) {
+            $session = AgentSession::create(['objective' => $objective]);
+            $session->steps()->create([
+                'type' => 'user',
+                'content' => $objective,
+            ]);
         }
 
         $done = false;
 
         while (!$done) {
-            $scratchpad = $this->persist
-                ? $this->buildScratchpad($session)
-                : $this->buildInMemoryScratchpad();
+            $scratchpad = $this->buildScratchpad($session);
+            $systemPrompt = $this->buildReActSystemPrompt($tools, $session->objective, $scratchpad);
 
-            $systemPrompt = $this->buildReActSystemPrompt($tools, $objective, $scratchpad);
-
+            // Get the structured response
             $response = $this->prism
                 ->structured()
                 ->using($this->provider, $this->model)
@@ -80,34 +70,61 @@ class ReActAgent
 //                ->toolChoice(ToolChoice::Auto)
                 ->generate();
 
-            $structuredResponse = $response->structured;
+            $structuredResponse = $response->structured ?? [];
+            $finishReason = $response->finishReason->name;
 
-            foreach ($structuredResponse['thoughts'] as $thought) {
-                $this->addStep('assistant', $thought, $session);
+            // ✅ Save all THOUGHTS
+            if (!empty($structuredResponse['thoughts'])) {
+                foreach ($structuredResponse['thoughts'] as $thought) {
+                    $session->steps()->create([
+                        'type'    => 'assistant',
+                        'content' => $thought,
+                    ]);
+                }
             }
 
-            foreach ($structuredResponse['actions'] as $action) {
-                $this->addStep('action', "Calling tool {$action['tool']}", $session, [
-                    'tool' => $action['tool'],
-                    'input' => $action['input'],
+            // ✅ Save all ACTIONS and OBSERVATIONS
+            if (!empty($structuredResponse['actions'])) {
+                foreach ($structuredResponse['actions'] as $action) {
+                    // Save action
+                    $session->steps()->create([
+                        'type'    => 'action',
+                        'content' => "Calling tool: {$action['tool']}",
+                        'payload' => [
+                            'tool'  => $action['tool'],
+                            'input' => $action['input'],
+                        ],
+                    ]);
+
+                    // Save observation
+                    $session->steps()->create([
+                        'type'    => 'observation',
+                        'content' => $action['observation'],
+                    ]);
+                }
+            }
+
+            // ✅ Save FINAL ANSWER if available
+            if (!empty($structuredResponse['final_answer'])) {
+                $session->update(['final_answer' => $structuredResponse['final_answer']]);
+                $session->steps()->create([
+                    'type'    => 'final',
+                    'content' => $structuredResponse['final_answer'],
                 ]);
-                $this->addStep('observation', $action['observation'], $session);
+                $done = true;  // End the loop
             }
 
-            $finalAnswer = $structuredResponse['final_answer'];
-
-            if ($this->persist) {
-                $session->update(['final_answer' => $finalAnswer]);
-                $this->addStep('final', $finalAnswer, $session);
-            } else {
-                $this->inMemorySession['final_answer'] = $finalAnswer;
-                $this->addStep('final', $finalAnswer);
+            // ✅ Stop if the finish reason indicates completion
+            if (
+                $finishReason === FinishReason::Stop ||
+                $finishReason === FinishReason::Length ||
+                $this->isFinalAnswer($response->text)
+            ) {
+                $done = true;
             }
-
-            $done = true;
         }
 
-        return $this->persist ? $session : $this->inMemorySession;
+        return $session;
     }
 
     /**
@@ -206,4 +223,8 @@ class ReActAgent
         ])->render();
     }
 
+    protected function isFinalAnswer(string $text): bool
+    {
+        return str_contains($text, 'Finish:');
+    }
 }
