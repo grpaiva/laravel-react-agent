@@ -1,16 +1,20 @@
 Answer the following question using the tools provided.
 
-Use this method of thought:
+Tools:
+@foreach($tools as $tool)
+    - {{ $tool['name'] }}: {{ $tool['description'] }}
+@endforeach
+
+Use this format:
 Question: {{ $question }}
 Thought: your reasoning
-(if thought requires a tool call you should call it directly)
-(results from tool will be included here in the scratchpad)
+Action: choose one of [{{ implode(', ', $toolNames) }}]
+Action Input: input for the action
+Observation: result of the action
 Thought: I now know the final answer
 Final Answer: your final answer
 
 Begin!
 
 Question: {{ $question }}
-
-Scratchpad:
 {{ $scratchpad }}

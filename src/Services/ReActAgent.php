@@ -37,7 +37,6 @@ class ReActAgent
         $this->persist = $persist;
     }
 
-
     /**
      * Handles the ReAct process with structured output.
      */
@@ -67,7 +66,7 @@ class ReActAgent
                     ->using($this->provider, $this->model)
                     ->withSchema($this->getReActSchema())
                     ->withSystemPrompt($systemPrompt)
-                    ->withTools($tools)
+//                    ->withTools($tools)
                     ->withPrompt('')
                     ->generate();
             } catch (PrismException $e) {
@@ -84,6 +83,29 @@ class ReActAgent
             if (!empty($structuredResponse['thoughts'])) {
                 foreach ($structuredResponse['thoughts'] as $thought) {
                     $session->steps()->create(['type' => 'assistant', 'content' => $thought]);
+                }
+            }
+
+            if (!empty($structuredResponse['actions'])) {
+                foreach ($structuredResponse['actions'] as $action) {
+                    $session->steps()->create([
+                        'type' => 'action',
+                        'content' => "Calling tool: {$action['tool']}",
+                        'payload' => ['tool' => $action['tool'], 'input' => $action['input']],
+                    ]);
+
+                    $toolName = str_replace('functions.', '', $action['tool']);
+
+                    foreach ($tools as $tool) {
+                        if ($tool->name() === $toolName) {
+                            $toolResponse = $tool->run($action['input']);
+                            $session->steps()->create(['type' => 'observation', 'content' => $toolResponse]);
+                        }
+                    }
+
+                    if (!empty($action['observation'])) {
+                        $session->steps()->create(['type' => 'observation', 'content' => $action['observation']]);
+                    }
                 }
             }
 
@@ -164,7 +186,18 @@ class ReActAgent
             name: 'react_response',
             description: 'Structured response for ReAct reasoning',
             properties: [
-                new StringSchema('thoughts', 'Reasoning steps'),
+                new ArraySchema('thoughts', 'Reasoning steps', new StringSchema('thought', 'Step')),
+                new ArraySchema('actions', 'Actions taken', new ObjectSchema(
+                    name: 'action',
+                    description: 'Action details',
+                    properties: [
+                        new StringSchema('tool', 'Tool to use - e.g. functions.search'),
+                        new StringSchema('input', 'Input to use with tool', nullable: true),
+                        new StringSchema('observation', 'Result', nullable: true),
+                    ],
+                    requiredFields: ['tool', 'input', 'observation'],
+                    nullable: true
+                )),
                 new StringSchema('final_answer', 'Final answer', nullable: true)
             ],
             requiredFields: ['thoughts']
