@@ -5,7 +5,6 @@
 /config/course.php
 /node_modules
 /public
-/database
 /storage/*.key
 /vendor
 .env
